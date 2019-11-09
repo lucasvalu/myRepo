@@ -26,13 +26,10 @@ function readWord(){
 }
 
 function classify(){
+	rm ${1}Compressed
 	biggerWordsCounter=0
 	counter=0
 	wordPosition=0
-	
-	rm finalCompressedFile
-	rm mediumCompressedFile
-	rm compressedFile
 	
 	while IFS= read -r line; do
 		for word in ${line}; do
@@ -41,36 +38,64 @@ function classify(){
 				let biggerWordsCounter++
 			fi
 		done
-	done < inputFile
-	echo -ne "(0)(${biggerWordsCounter})" >> finalCompressedFile
+	done < ${1}
+	echo -ne "(0)(${biggerWordsCounter})" >> ${1}Compressed
 	
 	while IFS= read -r line; do
 		for word in ${line}; do
-			echo "word ${counter}: ${word}"
-			echo "word size `printf "%s" "${word}" | wc -c`"
+			#echo "word ${counter}: ${word}"
+			#echo "word size `printf "%s" "${word}" | wc -c`"
 			wordSize=`printf "%s" "${word}" | wc -c`
 			
 			if [ ${wordSize} -gt 3 ]; then
-				echo "counter: $counter - pos: $wordPosition"
+				#echo "counter: $counter - pos: $wordPosition"
 				wordArray["bigger",${wordPosition},${counter}]=${word}
-				echo -ne "${wordArray[${wordPosition},${counter}]}," >> mediumCompressedFile
+				echo "${wordArray[${wordPosition},${counter}]} " >> mediumCompressedFile
 				let wordPosition++
 			fi	
-			
-			echo ""
 			let counter++
 		done
-	done < inputFile
+	done < ${1}
 	
-	counter=0
+	
+	secondCounter=0
+	thirdCounter=0
+	auxCounter=0
+	wordCounter=0
+	found="false"
 	while IFS= read -r line; do
 		for word in ${line}; do
-			auxiliarArray[${counter}]=${word}
-		done
-		for i in ${counter}; do
-			
+			mediumWordArray[${secondCounter}]="${word}"
+			mediumWordArrayRRN[${secondCounter}]="(255)(0)(${secondCounter})"
+			let secondCounter++
 		done
 	done < mediumCompressedFile
+	
+	while IFS= read -r line; do
+		for word in ${line}; do
+			found="false"
+			while [[ ${found} == "false"  ]];do
+				echo "current word is: ${word}" >> logFile
+				echo "being compared to: ${mediumWordArray[${auxCounter}]}" >> logFile
+				
+				if [[ ${word} == "${mediumWordArray[${auxCounter}]}" ]]; then
+					echo -ne "${mediumWordArray[${auxCounter}]}" >> test
+					echo -ne "${mediumWordArray[${auxCounter}]}," >> ${1}Compressed
+					echo -ne "${mediumWordArrayRRN[${auxCounter}]} " >> rrnCompressedFile
+					let wordCounter++
+					echo "MATCH!!!" >> logFile
+					echo "" >> logFile
+					auxCounter=1
+					found="true"
+				else
+					let auxCounter++
+				fi
+			done
+		done
+		
+		
+	done < mediumCompressedFile
+	cat rrnCompressedFile >> ${1}Compressed
 	
 }
 
@@ -97,9 +122,20 @@ function addToCompressedFile(){
 	done < inputFile
 }
 
+function main(){
 
 
+	if [[ ${1} == "-c" ]]; then
+		classify ${2}
+	fi
+	removeTemporaryFiles ${2}
+}
 
-#readWord
-classify
-echo "ARRAY ${wordArray[4,5]}"
+function removeTemporaryFiles(){
+	rm mediumCompressedFile
+	rm test
+	rm rrnCompressedFile
+	rm logFile
+}
+
+main ${1} ${2}
